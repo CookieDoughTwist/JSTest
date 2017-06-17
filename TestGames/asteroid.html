@@ -13,12 +13,70 @@ canvas {
 
 <script>
 var myShip;
+var entities;
 
 function startGame() {
-    myShip = new component(30, 30, "red", 225, 225);
+	myShip = new entity([[0,30],[15,-15],[-15, -15]],"#FF0000",255,255);
+	entities = [myShip];    
+    generateAsteroids();
     myGameArea.start();
 }
 
+function generateAsteroids() {
+    var ast = new entity([[10,50],[15,-35],[-15, -15],[-20,35]],"#00FF00",700,700);    
+    entities.push(ast);
+}
+    
+function entity(hitbox, color, x, y, type) {
+	this.type = type;
+    this.hitbox = hitbox;
+    this.color = color;
+    this.angle = 0;
+	this.dangle = 0;
+    this.x = x;
+    this.y = y;  
+	this.dx = 0;
+	this.dy = 0;
+	this.update = function() {
+		this.dx *= 0.99;
+		this.dy *= 0.99;
+		this.dangle *= 0.99;
+        
+        var rotatedHitbox = rotateCloud(this.hitbox,this.angle);
+        
+        ctx = myGameArea.context;
+        ctx.save(); 
+        
+        ctx.beginPath();
+		ctx.fillStyle = this.color;
+		ctx.moveTo(this.x+rotatedHitbox[0][0],this.y+rotatedHitbox[0][1]);
+		
+		for(var i = 1, n = rotatedHitbox.length; i < n; i++) {
+            ctx.lineTo(this.x+rotatedHitbox[i][0],this.y+rotatedHitbox[i][1]);
+		}
+        
+        ctx.fill();
+        
+        for(var i = 0, n = this.hitbox.length; i < n; i++) {
+            ctx.fillText("P1 = ("+hitbox[i][0].toFixed(3)+","+hitbox[i][1].toFixed(3)+")",10,(i+1)*50);
+		}
+		
+		ctx.restore();
+    }
+    this.newPos = function() {
+        this.angle += this.dangle * Math.PI / 180;
+        this.x += this.dx;
+        this.y += this.dy;
+    }
+	this.impulse = function(magnitude, angle) {
+		this.dx += magnitude * Math.sin(angle);
+		this.dy += magnitude * Math.cos(angle);
+	}
+	this.thrust = function() {
+		this.impulse(0.1,this.angle);
+	}
+}
+    
 var myGameArea = {
     canvas : document.createElement("canvas"),
     start : function() {
@@ -45,70 +103,36 @@ var myGameArea = {
     }
 }
 
-function component(width, height, color, x, y, type) {
 
-    this.type = type;
-    this.width = width;
-    this.height = height;
-    this.angle = 0;
-	this.dangle = 0;
-    this.x = x;
-    this.y = y;  
-	this.dx = 0;
-	this.dy = 0;
-    this.update = function() {
-        ctx = myGameArea.context;
-        ctx.save(); 
 
-		var a = rotate([              0,      this.width],this.angle),
-		b = rotate([ 0.5*this.width, -0.5*this.width],this.angle),
-		c = rotate([-0.5*this.width, -0.5*this.width],this.angle);
-
-		
-		ctx.beginPath();
-		ctx.fillStyle = "#F00";
-		ctx.moveTo(this.x+a[0],this.y+a[1]);
-		ctx.lineTo(this.x+b[0],this.y+b[1]);
-		ctx.lineTo(this.x+c[0],this.y+c[1]);
-		ctx.fill();
-		
-		ctx.font = "30px Arial";
-		ctx.fillText("A = ("+a[0].toFixed(3)+","+a[1].toFixed(3)+")",10,50);
-		ctx.fillText("B = ("+b[0].toFixed(3)+","+b[1].toFixed(3)+")",10,100);
-		ctx.fillText("C = ("+c[0].toFixed(3)+","+c[1].toFixed(3)+")",10,150);
-		ctx.fillText("angle = "+this.angle.toFixed(3),10,200);
-		
-		ctx.restore();
-    }
-    this.newPos = function() {
-        this.angle += this.dangle * Math.PI / 180;
-        this.x += this.dx;
-        this.y += this.dy;
-    }
-	this.impulse = function(magnitude, angle) {
-		this.dx = magnitude * Math.sin(angle);
-		this.dy = magnitude * Math.cos(angle);
-	}
-	this.thrust = function() {
-		this.impulse(1,this.angle);
-	}
-}
 
 function updateGameArea() {
     myGameArea.clear();
     if (myGameArea.keys && myGameArea.keys[37]) {myShip.dangle += .1; }
     if (myGameArea.keys && myGameArea.keys[39]) {myShip.dangle += -.1; }
     if (myGameArea.keys && myGameArea.keys[38]) {myShip.thrust(); }
-    myShip.newPos();
-    myShip.update();
+    for(var i = 0, n = entities.length; i < n; i++) {
+        entities[i].newPos();
+        entities[i].update();
+    }
 }
 
 function rotate(point, angle) {
-// Clockwise rotation
+    // Clockwise rotation
     var sin = Math.sin(angle),        
 		cos = Math.cos(angle);
     return [(cos * point[0]) + (sin * point[1]), -(sin * point[0]) + (cos * point[1])];
 }
+    
+function rotateCloud(points,angle) {
+    // Point cloud clockwise rotation
+    var outCloud = [];
+    for(var i = 0, n = points.length; i < n; i++) {
+        outCloud.push(rotate(points[i],angle));
+    }
+    return outCloud;
+}
+    
 </script>
 
 <p>Asteroid!</p>
