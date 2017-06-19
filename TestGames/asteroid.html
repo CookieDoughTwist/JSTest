@@ -23,7 +23,8 @@ function startGame() {
 }
 
 function generateAsteroids() {
-    var ast = new entity([[10,50],[15,-35],[-15, -15],[-20,35]],"#00FF00",700,700);    
+    //var ast = new entity([[10,50],[15,-35],[-15, -15],[-20,35]],"#00FF00",300,300);    
+    var ast = new entity([[10,50],[15,-35],[-15, -15]],"#00FF00",300,300);    
     entities.push(ast);
 }
     
@@ -42,7 +43,7 @@ function entity(hitbox, color, x, y, type) {
 		this.dy *= 0.99;
 		this.dangle *= 0.99;
         
-        var rotatedHitbox = rotateCloud(this.hitbox,this.angle);
+        rotatedHitbox = rotateCloud(this.hitbox,this.angle);
         
         ctx = myGameArea.context;
         ctx.save(); 
@@ -75,6 +76,9 @@ function entity(hitbox, color, x, y, type) {
 	this.thrust = function() {
 		this.impulse(0.1,this.angle);
 	}
+    this.retro = function() {
+        this.impulse(-0.1,this.angle);
+    }
 }
     
 var myGameArea = {
@@ -111,9 +115,18 @@ function updateGameArea() {
     if (myGameArea.keys && myGameArea.keys[37]) {myShip.dangle += .1; }
     if (myGameArea.keys && myGameArea.keys[39]) {myShip.dangle += -.1; }
     if (myGameArea.keys && myGameArea.keys[38]) {myShip.thrust(); }
+    if (myGameArea.keys && myGameArea.keys[40]) {myShip.retro(); }
     for(var i = 0, n = entities.length; i < n; i++) {
         entities[i].newPos();
         entities[i].update();
+    }
+    for(var i = 0, n = entities.length; i < n-1; i++) {
+        for(var j = i+1; j < n; j++) {
+            var test = detectCollision(entities[i],entities[j]);
+            ctx = myGameArea.context;            
+            console.log(i+","+j);
+            console.log(test);
+        }
     }
 }
 
@@ -131,6 +144,83 @@ function rotateCloud(points,angle) {
         outCloud.push(rotate(points[i],angle));
     }
     return outCloud;
+}
+    
+function addPoint(point1,point2) {
+    return [point1[0]+point2[0],point1[1]+point2[1]];
+}
+    
+function addPointToCloud(cloud,point) {    
+    for(var i = 0; i < cloud.length; i++) {
+        cloud[i][0] += point[0];
+        cloud[i][1] += point[1];
+    }    
+    return cloud;
+}
+    
+function detectCollision(entity1, entity2) {
+    var offset = [entity2.x-entity1.x,entity2.y-entity1.y];
+    var hitbox1 = rotateCloud(entity1.hitbox,entity1.angle);;
+    var hitbox2 = rotateCloud(entity2.hitbox,entity2.angle);;
+    hitbox2 = addPointToCloud(hitbox2,offset);
+    
+    for(var i = 0; i < hitbox2.length; i++) {
+        if(pointInHitbox(hitbox1,hitbox2[i])) {
+            return true;
+        }
+    }
+    
+    for(var i = 0; i < hitbox1.length; i++) {
+        if(pointInHitbox(hitbox2,hitbox1[i])) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+    
+function verticalIntercept(line,x) {
+    if((line[1][0]-line[0][0]) == 0) {
+        return null;
+    }
+    slope = (line[1][1]-line[0][1])/(line[1][0]-line[0][0]);
+    return x*slope+line[1][1]-line[1][0]*slope;
+}
+    
+function pointInHitbox(hitbox, point) {
+    logPoint(point);
+    var intercepts = 0;
+    for(var i = 0, n = hitbox.length; i < n; i++) {
+        if(i == n-1) {
+            var line = [hitbox[i], hitbox[0]];
+        }
+        else {
+            var line = [hitbox[i],hitbox[i+1]];
+        }                
+        //logPoint(line[0]);
+        //logPoint(line[1]);
+        // check if point is outside x bounds
+        if (!((point[0] > line[0][0] && point[0] < line[1][0]) ||
+             (point[0] < line[0][0] && point[0] > line[1][0]))) {
+            continue;
+        }
+        y = verticalIntercept(line,point[0]);
+        if(y != null && point[1] > y) {
+            intercepts++;
+        }
+    }
+    return intercepts % 2 == 1;
+}
+    
+function logPoint(point) {
+    console.log("("+point[0]+","+point[1]+")");
+}
+    
+function logCloud(cloud) {
+    console.log("Cloud:");
+    for(var i = 0; i < cloud.lenth; i++) {
+        logPoint(cloud[i]);
+    }
 }
     
 </script>
