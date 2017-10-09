@@ -14,30 +14,42 @@ canvas {
 <script>
 var myShip;
 var entities;
+var paused;
 
 function startGame() {
-	myShip = new entity([[0,30],[15,-15],[-15, -15]],"#FF0000",255,255);
+	myShip = new entity([[0,30],[15,-15],[-15, -15]],255,255,"","https://raw.githubusercontent.com/CookieDoughTwist/spaceship/master/graphics/ships/shadowblaze/shadowblaze.png");
 	entities = [myShip];    
+    paused = false;
     generateAsteroids();
     myGameArea.start();
 }
 
 function generateAsteroids() {
     //var ast = new entity([[10,50],[15,-35],[-15, -15],[-20,35]],"#00FF00",300,300);    
-    var ast = new entity([[10,50],[15,-35],[-15, -15]],"#00FF00",300,300);    
+    var ast = new entity([[10,50],[15,-35],[-15, -15]],300,300);    
     entities.push(ast);
+    var ast2 = new entity([[10,50],[15,-35],[-15, -15]],400,300);
+    ast2.dx = -1;
+    entities.push(ast2);
 }
     
-function entity(hitbox, color, x, y, type) {
+function entity(hitbox, x, y, type, image) {
 	this.type = type;
     this.hitbox = hitbox;
-    this.color = color;
+    if(image !== undefined) {
+        this.image = new Image();
+        this.image.src = image;
+        this.imageWidth2 = this.image.width/2;
+        this.imageHeight2 = this.image.height/2;        
+    }
+    this.color = "#00FF00";
     this.angle = 0;
 	this.dangle = 0;
     this.x = x;
     this.y = y;  
 	this.dx = 0;
 	this.dy = 0;
+	this.mass = 1;
 	this.update = function() {
 		this.dx *= 0.99;
 		this.dy *= 0.99;
@@ -46,22 +58,26 @@ function entity(hitbox, color, x, y, type) {
         rotatedHitbox = rotateCloud(this.hitbox,this.angle);
         
         ctx = myGameArea.context;
-        ctx.save(); 
+        ctx.save();         
+        if(this.image !== undefined) {
+            ctx.translate(this.x,this.y);
+            ctx.rotate(Math.PI-this.angle);
+            console.log("cheese " + this.imageWidth2);
+            console.log("doodle " + this.image.width);
+            ctx.drawImage(this.image,-this.imageWidth2,-this.imageHeight2,this.image.width,this.image.height);
+        }
+        else {
+            ctx.beginPath();
+            ctx.fillStyle = this.color;
+            ctx.moveTo(this.x+rotatedHitbox[0][0],this.y+rotatedHitbox[0][1]);
+
+            for(var i = 1, n = rotatedHitbox.length; i < n; i++) {
+                ctx.lineTo(this.x+rotatedHitbox[i][0],this.y+rotatedHitbox[i][1]);
+            }
+
+            ctx.fill();
+        }
         
-        ctx.beginPath();
-		ctx.fillStyle = this.color;
-		ctx.moveTo(this.x+rotatedHitbox[0][0],this.y+rotatedHitbox[0][1]);
-		
-		for(var i = 1, n = rotatedHitbox.length; i < n; i++) {
-            ctx.lineTo(this.x+rotatedHitbox[i][0],this.y+rotatedHitbox[i][1]);
-		}
-        
-        ctx.fill();
-        
-        for(var i = 0, n = this.hitbox.length; i < n; i++) {
-            ctx.fillText("P1 = ("+hitbox[i][0].toFixed(3)+","+hitbox[i][1].toFixed(3)+")",10,(i+1)*50);
-		}
-		
 		ctx.restore();
     }
     this.newPos = function() {
@@ -70,8 +86,12 @@ function entity(hitbox, color, x, y, type) {
         this.y += this.dy;
     }
 	this.impulse = function(magnitude, angle) {
-		this.dx += magnitude * Math.sin(angle);
-		this.dy += magnitude * Math.cos(angle);
+		this.dx += magnitude * Math.sin(angle) / this.mass;
+		this.dy += magnitude * Math.cos(angle) / this.mass;
+	}
+	this.impulseComp = function(dmx, dmy) {
+		this.dx += dmx / this.mass;
+		this.dy += dmy / this.mass;
 	}
 	this.thrust = function() {
 		this.impulse(0.1,this.angle);
@@ -108,25 +128,51 @@ var myGameArea = {
 }
 
 
-
-
 function updateGameArea() {
-    myGameArea.clear();
-    if (myGameArea.keys && myGameArea.keys[37]) {myShip.dangle += .1; }
-    if (myGameArea.keys && myGameArea.keys[39]) {myShip.dangle += -.1; }
-    if (myGameArea.keys && myGameArea.keys[38]) {myShip.thrust(); }
-    if (myGameArea.keys && myGameArea.keys[40]) {myShip.retro(); }
-    for(var i = 0, n = entities.length; i < n; i++) {
-        entities[i].newPos();
-        entities[i].update();
-    }
-    for(var i = 0, n = entities.length; i < n-1; i++) {
-        for(var j = i+1; j < n; j++) {
-            var test = detectCollision(entities[i],entities[j]);
-            ctx = myGameArea.context;            
-            console.log(i+","+j);
-            console.log(test);
+    
+
+    if (myGameArea.keys && myGameArea.keys[32]) {}
+    if (myGameArea.keys && myGameArea.keys[27]) {paused = !paused; myGameArea.context.fillText("PAUSED",960,540);}
+    
+    if(!paused) {
+        myGameArea.clear();
+        if (myGameArea.keys && myGameArea.keys[37]) {myShip.dangle += .1; }
+        if (myGameArea.keys && myGameArea.keys[39]) {myShip.dangle += -.1; }
+        if (myGameArea.keys && myGameArea.keys[38]) {myShip.thrust(); }
+        if (myGameArea.keys && myGameArea.keys[40]) {myShip.retro(); }
+        var curLine = 50;
+        for(var i = 0, n = entities.length; i < n; i++) {
+            entities[i].newPos();
+            entities[i].update();
+            
+            ctx = myGameArea.context;
+            
+            var curE = entities[i];
+            ctx.fillText("Entity: "+i,10,curLine);
+            curLine += 25;
+            ctx.fillText("(x,y) = ("+curE.x+","+curE.y+")",10,curLine);
+            curLine += 25;
+            for(var j = 0; j < entities[i].hitbox.length; j++) {
+                ctx.fillText("P = ("+entities[i].hitbox[j][0].toFixed(3)+","+entities[i].hitbox[j][1].toFixed(3)+")",10,curLine);
+                curLine += 25;
+            }
+            curLine += 50;
         }
+        for(var i = 0, n = entities.length; i < n-1; i++) {
+            for(var j = i+1; j < n; j++) {
+                var test = detectCollision(entities[i],entities[j]);
+				
+                //ctx = myGameArea.context;            
+                console.log(i+","+j);
+                console.log(test);
+				if(test) {
+					simpleCollision(entities[i],entities[j]);
+				}
+            }
+        }
+    }
+    else {
+        
     }
 }
 
@@ -159,9 +205,12 @@ function addPointToCloud(cloud,point) {
 }
     
 function detectCollision(entity1, entity2) {
+    if(entity1.hitbox == null || entity2.hitbox == null) {
+        return false;
+    }
     var offset = [entity2.x-entity1.x,entity2.y-entity1.y];
-    var hitbox1 = rotateCloud(entity1.hitbox,entity1.angle);;
-    var hitbox2 = rotateCloud(entity2.hitbox,entity2.angle);;
+    var hitbox1 = rotateCloud(entity1.hitbox,entity1.angle);
+    var hitbox2 = rotateCloud(entity2.hitbox,entity2.angle);
     hitbox2 = addPointToCloud(hitbox2,offset);
     
     for(var i = 0; i < hitbox2.length; i++) {
@@ -177,6 +226,18 @@ function detectCollision(entity1, entity2) {
     }
     
     return false;
+}
+
+function simpleCollision(entity1, entity2) {
+	// entity1 is still
+	reldx = entity2.dx - entity1.dx;
+	reldy = entity2.dy - entity1.dy;
+	dmx21 = entity2.mass * reldx;
+	dmy21 = entity2.mass * reldy;
+	dmx12 = entity1.mass * -reldx;
+	dmy12 = entity1.mass * -reldy;
+	entity1.impulseComp(dmx21,dmy21);
+	entity2.impulseComp(dmx12,dmy12);
 }
     
 function verticalIntercept(line,x) {
@@ -210,6 +271,10 @@ function pointInHitbox(hitbox, point) {
         }
     }
     return intercepts % 2 == 1;
+}
+    
+function paintExplode(point) {
+    
 }
     
 function logPoint(point) {
